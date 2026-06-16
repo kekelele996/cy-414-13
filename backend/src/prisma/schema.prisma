@@ -51,6 +51,7 @@ model Course {
   description String?      @db.Text
   duration    Int
   price       Decimal      @db.Decimal(10, 2)
+  minCapacity Int          @default(1) @map("min_capacity")
   maxCapacity Int          @default(1) @map("max_capacity")
   schedule    Json
   status      CourseStatus @default(published)

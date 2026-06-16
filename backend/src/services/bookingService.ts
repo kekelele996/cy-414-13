@@ -25,6 +25,7 @@ function toBookingDto(booking: any) {
           description: booking.course.description,
           duration: booking.course.duration,
           price: Number(booking.course.price),
+          minCapacity: booking.course.minCapacity ?? 1,
           maxCapacity: booking.course.maxCapacity,
           schedule: Array.isArray(booking.course.schedule) ? booking.course.schedule : [],
           status: booking.course.status,
@@ -57,6 +58,37 @@ function assertTransition(booking: any, nextStatus: BookingStatusValue, role: st
   }
 }
 
+async function autoConfirmIfThresholdMet(courseId: number, scheduleTime: Date) {
+  const course = await prisma.course.findUnique({ where: { id: courseId } })
+  if (!course) return
+  const minCapacity = course.minCapacity ?? 1
+  const slotTime = scheduleTime.getTime()
+
+  const slotBookings = await prisma.booking.findMany({
+    where: {
+      courseId,
+      status: { in: [BookingStatus.PENDING, BookingStatus.CONFIRMED] }
+    }
+  })
+  const matchingBookings = slotBookings.filter((b: any) =>
+    new Date(b.scheduleTime).getTime() === slotTime
+  )
+  const activeCount = matchingBookings.length
+
+  if (activeCount >= minCapacity) {
+    const pendingIds = matchingBookings
+      .filter((b: any) => b.status === BookingStatus.PENDING)
+      .map((b: any) => b.id)
+    if (pendingIds.length > 0) {
+      await prisma.booking.updateMany({
+        where: { id: { in: pendingIds } },
+        data: { status: BookingStatus.CONFIRMED }
+      })
+      logger.info('BOOKING_AUTO_CONFIRM', { courseId, scheduleTime, count: pendingIds.length })
+    }
+  }
+}
+
 export const bookingService = {
   async list(userId: number, role: string) {
     logger.info('BOOKING_LIST', { userId, role })
@@ -66,7 +98,7 @@ export const bookingService = {
       include: { course: { include: { coach: true } } },
       orderBy: { scheduleTime: 'asc' }
     })
-    return bookings.map(toBookingDto)
+    return bookings.map((item: any) => toBookingDto(item))
   },
 
   async upcoming(userId: number, role: string) {
@@ -81,17 +113,65 @@ export const bookingService = {
       logger.warn('BOOKING_CREATE_FAILED', { courseId: payload.courseId })
       throw new AppError(`Booking[course_id=${payload.courseId}] create failed: Course[id] missing role=${UserRole.STUDENT}`, 404, ErrorCodes.COURSE_NOT_FOUND, 'Booking', 'course_id', UserRole.STUDENT)
     }
+    const scheduleDate = new Date(payload.scheduleTime)
+    const slotTime = scheduleDate.getTime()
+    const scheduleList = Array.isArray(course.schedule) ? course.schedule : []
+    const validSlot = scheduleList.some((s: any) => new Date(s).getTime() === slotTime)
+    if (!validSlot) {
+      throw new AppError(`Booking[course_id=${payload.courseId}] create failed: schedule_time not in course schedule role=${UserRole.STUDENT}`, 400, ErrorCodes.BOOKING_STATUS_PENDING_LOCKED, 'Booking', 'schedule_time', UserRole.STUDENT)
+    }
+    const existingSameSlot = await prisma.booking.findMany({
+      where: {
+        courseId: payload.courseId,
+        userId,
+        status: { in: [BookingStatus.PENDING, BookingStatus.CONFIRMED] }
+      }
+    })
+    const duplicate = existingSameSlot.some((b: any) => new Date(b.scheduleTime).getTime() === slotTime)
+    if (duplicate) {
+      throw new AppError(`Booking[course_id=${payload.courseId}] create failed: duplicate booking for same slot role=${UserRole.STUDENT}`, 409, ErrorCodes.BOOKING_TRANSITION_INVALID, 'Booking', 'schedule_time', UserRole.STUDENT)
+    }
+    const maxCapacity = course.maxCapacity ?? 1
+    const slotBookings = await prisma.booking.findMany({
+      where: {
+        courseId: payload.courseId,
+        status: { in: [BookingStatus.PENDING, BookingStatus.CONFIRMED] }
+      }
+    })
+    const currentSlotCount = slotBookings.filter((b: any) => new Date(b.scheduleTime).getTime() === slotTime).length
+    if (currentSlotCount >= maxCapacity) {
+      throw new AppError(`Booking[course_id=${payload.courseId}] create failed: slot full role=${UserRole.STUDENT}`, 409, ErrorCodes.BOOKING_STATUS_CONFIRMED_LOCKED, 'Booking', 'schedule_time', UserRole.STUDENT)
+    }
+
+    const minCapacity = course.minCapacity ?? 1
+    const initialStatus: BookingStatusValue = minCapacity <= 1 && currentSlotCount + 1 >= minCapacity
+      ? BookingStatus.CONFIRMED
+      : BookingStatus.PENDING
+
     const booking = await prisma.booking.create({
       data: {
         userId,
         courseId: payload.courseId,
-        scheduleTime: new Date(payload.scheduleTime),
-        status: BookingStatus.PENDING,
+        scheduleTime: scheduleDate,
+        status: initialStatus,
         note: payload.note
       },
       include: { course: { include: { coach: true } } }
     })
-    logger.info('BOOKING_CREATE_SUCCESS', { id: booking.id })
+
+    if (initialStatus === BookingStatus.PENDING) {
+      await autoConfirmIfThresholdMet(payload.courseId, scheduleDate)
+      const refreshed = await prisma.booking.findUnique({
+        where: { id: booking.id },
+        include: { course: { include: { coach: true } } }
+      })
+      if (refreshed) {
+        logger.info('BOOKING_CREATE_SUCCESS', { id: refreshed.id, status: refreshed.status })
+        return toBookingDto(refreshed)
+      }
+    }
+
+    logger.info('BOOKING_CREATE_SUCCESS', { id: booking.id, status: initialStatus })
     return toBookingDto(booking)
   },
 

@@ -1,5 +1,5 @@
 import { request } from '@/utils/request'
-import type { Course } from '@/types/domain'
+import type { Course, CourseWithProgress } from '@/types/domain'
 
 export const courseApi = {
   list(params?: { keyword?: string; coachId?: number }) {
@@ -13,6 +13,9 @@ export const courseApi = {
   },
   create(payload: Partial<Course>) {
     return request.post<unknown, Course>('/courses', payload)
+  },
+  coachProgress() {
+    return request.get<unknown, CourseWithProgress[]>('/courses/coach/progress')
   }
 }
 

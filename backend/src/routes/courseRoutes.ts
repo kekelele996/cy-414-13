@@ -10,5 +10,6 @@ export const courseRoutes = Router()
 
 courseRoutes.get('/courses', auth, generalRateLimiter, asyncHandler(courseController.list))
 courseRoutes.get('/courses/recommended', auth, generalRateLimiter, asyncHandler(courseController.recommended))
+courseRoutes.get('/courses/coach/progress', auth, roleCheck([UserRole.COACH, UserRole.ADMIN]), generalRateLimiter, asyncHandler(courseController.coachProgress))
 courseRoutes.get('/courses/:id', auth, generalRateLimiter, asyncHandler(courseController.detail))
 courseRoutes.post('/courses', auth, roleCheck([UserRole.COACH, UserRole.ADMIN]), generalRateLimiter, asyncHandler(courseController.create))

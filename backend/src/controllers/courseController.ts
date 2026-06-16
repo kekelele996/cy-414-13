@@ -30,6 +30,10 @@ export const courseController = {
       logger.error('ERROR_HANDLER_CAUGHT', { entity: 'Course', field: 'schedule', role: req.user?.role || 'anonymous', code: ErrorCodes.COURSE_COACH_REQUIRED })
       throw error instanceof AppError ? error : new AppError(`Course[coach_id=${req.user?.id}] create failed: schedule invalid role=${req.user?.role}`, 400, ErrorCodes.COURSE_COACH_REQUIRED, 'Course', 'schedule', req.user?.role || 'anonymous')
     }
+  },
+
+  async coachProgress(req: AuthedRequest, res: Response) {
+    res.json(await courseService.coachCoursesWithProgress(req.user?.id || 0, req.user?.role || UserRole.STUDENT))
   }
 }
 

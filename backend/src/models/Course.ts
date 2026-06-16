@@ -5,9 +5,13 @@ export const courseCreateSchema = z.object({
   description: z.string().max(2000).optional(),
   duration: z.number().int().min(15).max(240),
   price: z.number().min(0),
+  minCapacity: z.number().int().min(1).max(99).default(1),
   maxCapacity: z.number().int().min(1).max(99),
   schedule: z.array(z.string().datetime({ offset: true })).min(1),
   status: z.enum(['draft', 'published', 'archived']).default('published')
+}).refine(data => data.minCapacity <= data.maxCapacity, {
+  message: '最低开课人数不能超过最大容量',
+  path: ['minCapacity']
 })
 
 export const courseQuerySchema = z.object({
@@ -15,5 +19,5 @@ export const courseQuerySchema = z.object({
   coachId: z.coerce.number().int().positive().optional()
 })
 
-export const COURSE_MODEL_COUPLED_FIELDS = ['coach_id', 'schedule', 'status', 'price', 'max_capacity']
+export const COURSE_MODEL_COUPLED_FIELDS = ['coach_id', 'schedule', 'status', 'price', 'min_capacity', 'max_capacity']
 

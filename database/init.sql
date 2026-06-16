@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS courses (
   description TEXT,
   duration INT NOT NULL,
   price DECIMAL(10,2) NOT NULL,
+  min_capacity INT NOT NULL DEFAULT 1,
   max_capacity INT NOT NULL DEFAULT 1,
   schedule JSON NOT NULL,
   status VARCHAR(24) NOT NULL DEFAULT 'published',
@@ -61,8 +62,8 @@ VALUES
 ('13800000003', '$2a$10$N3l5nJIBV147BsqidbT7QO3U28t5GK1R932GPvmKTyStLXO/pO4iK', 'FitPro Admin', NULL, 'admin', 'other', NULL, NULL)
 ON DUPLICATE KEY UPDATE nickname = VALUES(nickname);
 
-INSERT INTO courses (coach_id, title, description, duration, price, max_capacity, schedule, status)
+INSERT INTO courses (coach_id, title, description, duration, price, min_capacity, max_capacity, schedule, status)
 VALUES
-(2, '晨间力量唤醒', '小班力量训练，聚焦核心激活与动作模式校准。', 60, 188.00, 6, JSON_ARRAY('2026-06-16T08:00:00+08:00','2026-06-18T08:00:00+08:00'), 'published'),
-(2, '体态矫正私教', '肩颈、髋膝踝评估后定制动作方案。', 45, 260.00, 1, JSON_ARRAY('2026-06-16T19:00:00+08:00','2026-06-19T19:30:00+08:00'), 'published')
+(2, '晨间力量唤醒', '小班力量训练，聚焦核心激活与动作模式校准。', 60, 188.00, 3, 6, JSON_ARRAY('2026-06-16T08:00:00+08:00','2026-06-18T08:00:00+08:00'), 'published'),
+(2, '体态矫正私教', '肩颈、髋膝踝评估后定制动作方案。', 45, 260.00, 1, 1, JSON_ARRAY('2026-06-16T19:00:00+08:00','2026-06-19T19:30:00+08:00'), 'published')
 ON DUPLICATE KEY UPDATE title = VALUES(title);

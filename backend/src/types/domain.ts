@@ -13,6 +13,18 @@ export interface UserDto {
   createdAt?: Date
 }
 
+export interface ScheduleSlotProgress {
+  scheduleTime: string
+  bookedCount: number
+  confirmedCount: number
+  pendingCount: number
+  minCapacity: number
+  maxCapacity: number
+  remainingToConfirm: number
+  isConfirmed: boolean
+  isFull: boolean
+}
+
 export interface CourseDto {
   id: number
   coachId: number
@@ -20,10 +32,19 @@ export interface CourseDto {
   description?: string | null
   duration: number
   price: number
+  minCapacity: number
   maxCapacity: number
   schedule: string[]
   status: string
   coach?: UserDto
+  slotProgress?: ScheduleSlotProgress[]
+}
+
+export interface CourseWithProgressDto extends CourseDto {
+  totalBookings: number
+  totalConfirmed: number
+  totalPending: number
+  slotProgress: ScheduleSlotProgress[]
 }
 
 export interface BookingDto {

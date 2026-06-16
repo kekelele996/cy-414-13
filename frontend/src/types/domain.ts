@@ -13,6 +13,18 @@ export interface User {
   createdAt?: string
 }
 
+export interface ScheduleSlotProgress {
+  scheduleTime: string
+  bookedCount: number
+  confirmedCount: number
+  pendingCount: number
+  minCapacity: number
+  maxCapacity: number
+  remainingToConfirm: number
+  isConfirmed: boolean
+  isFull: boolean
+}
+
 export interface Course {
   id: number
   coachId: number
@@ -20,12 +32,21 @@ export interface Course {
   description?: string | null
   duration: number
   price: number
+  minCapacity: number
   maxCapacity: number
   schedule: string[]
   status: string
   createdAt?: string
   coach?: Pick<User, 'id' | 'nickname' | 'avatar' | 'role'>
   reason?: string
+  slotProgress?: ScheduleSlotProgress[]
+}
+
+export interface CourseWithProgress extends Course {
+  totalBookings: number
+  totalConfirmed: number
+  totalPending: number
+  slotProgress: ScheduleSlotProgress[]
 }
 
 export interface Booking {
