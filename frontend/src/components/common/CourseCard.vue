@@ -12,11 +12,15 @@
 
     <div class="meta-grid">
       <span><Timer :size="16" />{{ course.duration }} 分钟</span>
-      <span><Users :size="16" />{{ course.minCapacity }}–{{ course.maxCapacity }} 人</span>
+      <span>
+        <Users :size="16" />
+        <template v-if="autoConfirmEnabled">{{ course.minCapacity }}–{{ course.maxCapacity }} 人</template>
+        <template v-else>{{ course.maxCapacity }} 人</template>
+      </span>
       <span><CalendarClock :size="16" />{{ nextSchedule }}</span>
     </div>
 
-    <div v-if="overallProgress" class="progress-block">
+    <div v-if="autoConfirmEnabled && overallProgress" class="progress-block">
       <div class="progress-head">
         <span v-if="overallProgress.isConfirmed" class="confirmed-tag">已成团</span>
         <span v-else-if="overallProgress.remainingToConfirm > 0" class="pending-tag">
@@ -48,10 +52,12 @@
               <div class="slot-item">
                 <span>{{ formatSchedule(item.scheduleTime) }}</span>
                 <span v-if="item.isFull" class="slot-full">已满</span>
-                <span v-else-if="item.isConfirmed" class="slot-confirmed">已成团</span>
-                <span v-else-if="item.remainingToConfirm > 0" class="slot-pending">
-                  差 {{ item.remainingToConfirm }} 人
-                </span>
+                <template v-else-if="autoConfirmEnabled">
+                  <span v-if="item.isConfirmed" class="slot-confirmed">已成团</span>
+                  <span v-else-if="item.remainingToConfirm > 0" class="slot-pending">
+                    差 {{ item.remainingToConfirm }} 人
+                  </span>
+                </template>
               </div>
             </el-dropdown-item>
           </el-dropdown-menu>
@@ -80,6 +86,12 @@ const emit = defineEmits<{
 
 const courseRef = computed(() => toRef(props, 'course').value)
 const { nextSchedule } = useCoachSchedule(courseRef)
+
+const autoConfirmEnabled = computed(() => {
+  const min = props.course.minCapacity
+  const max = props.course.maxCapacity
+  return typeof min === 'number' && typeof max === 'number' && min >= 1 && min <= max
+})
 
 const slotProgressMap = computed<Record<string, ScheduleSlotProgress>>(() => {
   const map: Record<string, ScheduleSlotProgress> = {}

@@ -9,12 +9,17 @@ import type { z } from 'zod'
 import type { courseCreateSchema, courseQuerySchema } from '../models/Course'
 import type { CourseWithProgressDto, ScheduleSlotProgress } from '../types/domain'
 
+function isAutoConfirmEnabled(minCapacity: number, maxCapacity: number): boolean {
+  return minCapacity >= 1 && minCapacity <= maxCapacity
+}
+
 function computeSlotProgress(
   schedule: string[],
   bookings: any[],
   minCapacity: number,
   maxCapacity: number
-): ScheduleSlotProgress[] {
+): ScheduleSlotProgress[] | null {
+  if (!isAutoConfirmEnabled(minCapacity, maxCapacity)) return null
   return schedule.map(slot => {
     const slotBookings = bookings.filter((b: any) => {
       const t1 = new Date(b.scheduleTime).getTime()
@@ -87,7 +92,7 @@ function normalizeCourseWithProgress(course: any): CourseWithProgressDto {
     totalBookings: activeBookings.length,
     totalConfirmed: bookings.filter((b: any) => b.status === BookingStatus.CONFIRMED).length,
     totalPending: bookings.filter((b: any) => b.status === BookingStatus.PENDING).length,
-    slotProgress: normalized.slotProgress!
+    slotProgress: normalized.slotProgress ?? []
   }
 }
 

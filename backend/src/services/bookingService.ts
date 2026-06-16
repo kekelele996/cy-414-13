@@ -58,10 +58,17 @@ function assertTransition(booking: any, nextStatus: BookingStatusValue, role: st
   }
 }
 
+function isAutoConfirmEnabled(minCapacity: number | null | undefined, maxCapacity: number | null | undefined): boolean {
+  const min = Number(minCapacity)
+  const max = Number(maxCapacity)
+  return !isNaN(min) && !isNaN(max) && min >= 1 && min <= max
+}
+
 async function autoConfirmIfThresholdMet(courseId: number, scheduleTime: Date) {
   const course = await prisma.course.findUnique({ where: { id: courseId } })
   if (!course) return
-  const minCapacity = course.minCapacity ?? 1
+  if (!isAutoConfirmEnabled(course.minCapacity, course.maxCapacity)) return
+  const minCapacity = Number(course.minCapacity)
   const slotTime = scheduleTime.getTime()
 
   const slotBookings = await prisma.booking.findMany({
@@ -143,8 +150,9 @@ export const bookingService = {
       throw new AppError(`Booking[course_id=${payload.courseId}] create failed: slot full role=${UserRole.STUDENT}`, 409, ErrorCodes.BOOKING_STATUS_CONFIRMED_LOCKED, 'Booking', 'schedule_time', UserRole.STUDENT)
     }
 
-    const minCapacity = course.minCapacity ?? 1
-    const initialStatus: BookingStatusValue = minCapacity <= 1 && currentSlotCount + 1 >= minCapacity
+    const autoConfirm = isAutoConfirmEnabled(course.minCapacity, course.maxCapacity)
+    const minCap = Number(course.minCapacity)
+    const initialStatus: BookingStatusValue = autoConfirm && minCap <= 1 && currentSlotCount + 1 >= minCap
       ? BookingStatus.CONFIRMED
       : BookingStatus.PENDING
 
